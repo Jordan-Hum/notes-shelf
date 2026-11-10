@@ -27,6 +27,11 @@ def get(url, data=None, headers=None, tries=3, as_json=False):
             with urllib.request.urlopen(req, timeout=45) as r:
                 body = r.read().decode('utf-8', 'replace')
             return json.loads(body) if as_json else body
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code == 404:
+                break
+            time.sleep((8 if e.code == 429 else 1.5) * (2 ** i))
         except Exception as e:  # noqa: BLE001
             last = e
             time.sleep(1.5 * (i + 1))
@@ -361,9 +366,9 @@ def scotia():
         items += [(x.get('issueId'), ty) for x in lst if x.get('issueId')]
 
     def det(it):
-        time.sleep(0.3)
-        return (get(f'{SC_API}?issueId={it[0]}&language=English&productType={it[1]}', as_json=True, tries=4) or [{}])[0]
-    dets = pmap(det, items, workers=3)
+        time.sleep(1.0)
+        return (get(f'{SC_API}?issueId={it[0]}&language=English&productType={it[1]}', as_json=True, tries=5) or [{}])[0]
+    dets = [det(it) for it in items]     # one at a time: this API rate-limits
     out = []
     for (iid, ty), o in zip(items, dets):
         if not o or not o.get('fundServCode'):

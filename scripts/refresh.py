@@ -193,6 +193,8 @@ def nbc():
         protected = ptype != 'NPPN'
         und = _js_str(b, 'underlying')
         start, end, issue = _js_date(b, 'startOfSale'), _js_date(b, 'endOfSale'), _js_date(b, 'issuanceDate')
+        if end and date.fromisoformat(end) < TODAY:   # closed offerings linger in the page source
+            continue
         term = float(_js_val(b, 'term') or 0)
         sold_out = _js_val(b, 'soldOut') == 'true'
         cthr_raw = _js_val(b, 'callThreshold')
@@ -350,7 +352,12 @@ SC_API = 'https://api.scotiabank.com/investorsolutions/issue/v1.0'
 def scotia():
     items = []
     for ty in ('PAR', 'PPN', 'MLGIC', 'FIN'):
-        lst = get(f'{SC_API}/issue-list?issueStatus=Current&language=English&productType={ty}', as_json=True) or []
+        try:
+            lst = get(f'{SC_API}/issue-list?issueStatus=Current&language=English&productType={ty}', as_json=True) or []
+        except RuntimeError as e:
+            if '404' in str(e):       # no current issues of this type
+                continue
+            raise
         items += [(x.get('issueId'), ty) for x in lst if x.get('issueId')]
 
     def det(it):

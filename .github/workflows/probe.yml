@@ -1,0 +1,22 @@
+name: probe
+on:
+  push:
+    branches: [probe]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check bank endpoints
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+          t() { code=$(curl -s -o /tmp/b -w '%{http_code}' -A "$UA" -H 'Accept: application/json, text/html, */*' --max-time 30 "$@"); echo "== $code $(wc -c </tmp/b)B :: ${@: -1}"; head -c 200 /tmp/b | tr '\n' ' '; echo; }
+          t https://notes.cibc.com/api/v2/noteList/offerings/PAR
+          t https://notes.cibc.com/api/v2/noteDetails/4010584
+          t "https://cloud.messagebnc.nbc.ca/en-notes-current-offer?category=F"
+          t https://app.nbcstructuredsolutions.ca/api/v1/public/products/973674
+          t -X POST -H 'X-Requested-With: XMLHttpRequest' -H 'Content-Type: application/x-www-form-urlencoded' --data '' https://www.bmonotes.com/TypeAjax/GetSelling/
+          t https://www.bmonotes.com/Note/JHN23113
+          t https://www.bmonotes.com/Type/NPPNs
+          t "https://api.scotiabank.com/investorsolutions/issue/v1.0/issue-list?issueStatus=Current&language=English&productType=PAR"
+          t "https://api.scotiabank.com/investorsolutions/issue/v1.0?issueId=61515&language=English&productType=PAR"

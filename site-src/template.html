@@ -1,0 +1,523 @@
+<title>Structured Notes Shelf</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column — summary strip, filter row, risk/return map, then the sortable shelf table with expandable rows and a compare tray. */
+:root{
+  --bg:#f5f7f9; --panel:#ffffff; --ink:#17202b; --ink-2:#4a5664; --ink-3:#7b8794;
+  --line:#dde3ea; --line-2:#eef2f6; --accent:#1d3a5f; --accent-ink:#ffffff; --hl:#e8f0fa;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --risk:#c2410c; --safe:#15803d; --warn:#b45309;
+  --f-ui:"Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --panel:#161d25; --ink:#e7edf3; --ink-2:#a9b5c2; --ink-3:#7d8a97;
+  --line:#2a3542; --line-2:#1d2630; --accent:#9cc3f0; --accent-ink:#0f141a; --hl:#1c2a3a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --risk:#f08a5d; --safe:#4ade80; --warn:#fbbf24; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#161d25; --ink:#e7edf3; --ink-2:#a9b5c2; --ink-3:#7d8a97;
+  --line:#2a3542; --line-2:#1d2630; --accent:#9cc3f0; --accent-ink:#0f141a; --hl:#1c2a3a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --risk:#f08a5d; --safe:#4ade80; --warn:#fbbf24; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.wrap{max-width:1380px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.sub{color:var(--ink-2);margin:4px 0 0;max-width:80ch}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.asof{font-size:12px;color:var(--ink-3)}
+.banks{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.b-CIBC{background:var(--s1)} .b-NBC{background:var(--s2)} .b-BMO{background:var(--s3)} .b-Scotia{background:var(--s4)}
+.thr{display:inline-block;font-family:var(--f-num);font-size:13px;white-space:nowrap}
+.thr.na{color:var(--ink-3);font-family:var(--f-ui);font-size:12px}
+th abbr{text-decoration:none;border-bottom:1px dotted var(--ink-3);cursor:help}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 22px;font-size:12px;color:var(--ink-2);padding:10px 14px;border-bottom:1px solid var(--line);background:var(--line-2)}
+.legend b{color:var(--ink);font-weight:600}
+
+/* summary */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--panel);padding:12px 14px;min-width:0}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.stat .v{font-size:22px;font-weight:600;margin-top:2px}
+.stat .d{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* filters */
+.filters{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fg>label,.fg>.lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.seg{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--ink-2);padding:5px 10px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+select,input[type=search],input[type=number]{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 8px;min-width:0}
+input[type=search]{width:220px;max-width:100%}
+input[type=number]{width:72px}
+button:focus-visible,select:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(--s1);outline-offset:1px}
+.reset{font:inherit;font-size:13px;background:none;border:0;color:var(--accent);cursor:pointer;padding:5px 0;text-decoration:underline}
+
+/* map */
+.mapcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px}
+@media (max-width:860px){.mapcard{grid-template-columns:1fr}}
+.mapcard h2,.tablehead h2{font-size:15px;margin:0;font-weight:600}
+.mapnote{font-size:12px;color:var(--ink-2);margin:2px 0 8px}
+#map{width:100%;height:auto;display:block;overflow:visible}
+#map text{font-family:var(--f-num);font-size:11px;fill:var(--ink-3)}
+#map .gl{stroke:var(--line-2)} #map .ax{stroke:var(--line)}
+#map .pt{stroke:var(--panel);stroke-width:2;cursor:pointer}
+#map .pt.dim{opacity:.12}
+.side h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:0 0 8px;font-weight:500}
+.toplist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.toplist li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;cursor:pointer;padding:6px;border-radius:6px}
+.toplist li:hover{background:var(--hl)}
+.toplist .nm{font-size:12px;line-height:1.3;min-width:0}
+.toplist .rt{font-size:13px;font-weight:500}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:8px 10px;border-radius:7px;max-width:300px;z-index:20;line-height:1.35}
+.tip b{font-weight:600}
+
+/* table */
+.tablecard{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tablehead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.tablehead .cnt{font-size:12px;color:var(--ink-2)}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:1100px}
+th{position:sticky;top:0;background:var(--panel);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.s{cursor:pointer;user-select:none} th.s:hover{color:var(--ink)}
+th .ar{font-size:9px;margin-left:3px}
+th.r,td.r{text-align:right}
+td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tr.row{cursor:pointer} tr.row:hover td{background:var(--hl)}
+tr.row.open td{background:var(--hl);border-bottom-color:transparent}
+.nm1{font-weight:500;line-height:1.3;min-width:260px;max-width:40ch}
+[hidden]{display:none!important}
+.nm2{font-size:12px;color:var(--ink-3);margin-top:2px;max-width:42ch}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.pill.prot{border-color:var(--safe);color:var(--safe)}
+.pill.f{border-color:var(--accent);color:var(--accent)}
+.pill.new{border-color:var(--warn);color:var(--warn)}
+.bankcell{white-space:nowrap;font-size:13px}
+.rate{font-size:15px;font-weight:500}
+.rlab{font-size:11px;color:var(--ink-3)}
+.gauge{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.gbar{position:relative;width:70px;height:8px;border-radius:4px;background:var(--line-2);overflow:hidden}
+.gbar i{position:absolute;right:0;top:0;bottom:0;border-radius:4px;background:var(--ink-3)}
+.gbar.p i{background:var(--safe);left:0}
+.close{white-space:nowrap}
+.cd{font-size:11px;color:var(--ink-3)}
+.cd.soon{color:var(--risk);font-weight:500}
+.star,.cmp{font:inherit;background:none;border:0;cursor:pointer;color:var(--ink-3);font-size:17px;line-height:1;padding:2px}
+.star[aria-pressed="true"]{color:var(--warn)}
+.cmp{font-size:12px;border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.cmp[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+tr.det td{padding:0 10px 14px;background:var(--hl)}
+.detgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 22px;padding:10px 4px 2px;border-top:1px dashed var(--line)}
+.kv .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.kv .v{font-size:13px}
+.feats{grid-column:1/-1;margin:0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+a{color:var(--accent)}
+.empty{padding:40px 14px;text-align:center;color:var(--ink-2)}
+
+/* compare tray */
+.tray{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.08);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tray .chips{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{font:inherit;font-size:13px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:7px;padding:6px 12px;cursor:pointer}
+.btn.ghost{background:none;color:var(--accent)}
+.cmpwrap{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cmpwrap .tscroll table{min-width:700px}
+.cmpwrap td:first-child{color:var(--ink-3);font-size:12px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:150px}
+.cmpwrap td{border-right:1px solid var(--line-2)}
+.foot{font-size:12px;color:var(--ink-3);max-width:110ch}
+.refresh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.rstatus{font-size:12px;color:var(--ink-2);max-width:46ch;text-align:right;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.rstatus.err{color:var(--risk)}
+.rstatus .btn{padding:4px 10px;font-size:12px}
+.spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.stale{font-size:12px;color:var(--warn);text-align:right}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Structured Notes Shelf</h1>
+      <p class="sub">Every note currently offered by CIBC, National Bank, BMO and Scotiabank in one place. Filter, sort, star the ones worth a closer look, and compare up to four side by side.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+      <div class="banks"><span><i class="dot b-CIBC"></i>CIBC</span><span><i class="dot b-NBC"></i>National Bank</span><span><i class="dot b-BMO"></i>BMO</span><span><i class="dot b-Scotia"></i>Scotiabank</span></div>
+      <div class="refresh">
+        <div class="asof" id="asof">Snapshot taken from each bank's offerings page</div>
+        <button class="btn ghost" id="refreshBtn" type="button" hidden>Refresh data</button>
+      </div>
+      <div class="rstatus" id="rstatus" role="status" aria-live="polite" hidden></div>
+    </div>
+  </header>
+
+  <section class="stats" id="stats" aria-label="Summary of filtered notes"></section>
+
+  <section class="filters" aria-label="Filters">
+    <div class="fg"><span class="lab">Bank</span><div class="seg" id="f-bank"></div></div>
+    <div class="fg"><span class="lab">Principal</span><div class="seg" id="f-prot"></div></div>
+    <div class="fg"><span class="lab">Structure</span><div class="seg" id="f-type"></div></div>
+    <div class="fg"><span class="lab">Class</span><div class="seg" id="f-cls"></div></div>
+    <div class="fg"><span class="lab">Currency</span><div class="seg" id="f-cur"></div></div>
+    <div class="fg"><label for="f-sector">Underlying</label><select id="f-sector"></select></div>
+    <div class="fg"><label for="f-region">Region</label><select id="f-region"></select></div>
+    <div class="fg"><label for="f-term">Max term (yrs)</label><select id="f-term"><option value="99">Any</option><option value="3">≤ 3</option><option value="5">≤ 5</option><option value="7">≤ 7</option></select></div>
+    <div class="fg"><label for="f-minrate">Min return p.a. %</label><input type="number" id="f-minrate" min="0" step="0.5" placeholder="0"></div>
+    <div class="fg"><label for="f-callthr">Call threshold</label><select id="f-callthr"><option value="any">Any</option><option value="0">≥ 0% (calls at par or better)</option><option value="5">+5% or higher</option><option value="10">+10% or higher</option></select></div>
+    <div class="fg"><label for="f-cpnthr">Coupon threshold at least</label><select id="f-cpnthr"><option value="0">Any</option><option value="-25">-25% or deeper</option><option value="-30">-30% or deeper</option><option value="-40">-40% or deeper</option></select></div>
+    <div class="fg"><label for="f-minbar">Barrier at least</label><select id="f-minbar"><option value="0">Any</option><option value="-20">-20% or deeper</option><option value="-25">-25% or deeper</option><option value="-30">-30% or deeper</option><option value="-40">-40% or deeper</option></select></div>
+    <div class="fg"><label for="f-q">Search</label><input type="search" id="f-q" placeholder="Name, underlying, FundSERV…"></div>
+    <div class="fg"><span class="lab">Show</span><div class="seg" id="f-show"></div></div>
+    <button class="reset" id="reset">Reset filters</button>
+  </section>
+
+  <section class="mapcard" aria-label="Return versus protection map">
+    <div style="min-width:0">
+      <h2>Return vs. downside barrier</h2>
+      <p class="mapnote">Each dot is a principal-at-risk note in the current filter. Higher is more return per year; further right is a deeper barrier (more cushion before capital loss). Shapes mark the bank: ● CIBC, ■ National Bank, ▲ BMO, ◆ Scotiabank. Hover for details, click to open it in the table.</p>
+      <svg id="map" viewBox="0 0 720 300" role="img" aria-label="Scatter of annualized return against barrier depth, colored by bank"></svg>
+    </div>
+    <div class="side">
+      <h3>Best return for the cushion</h3>
+      <p class="mapnote" style="margin-top:-4px">Highest return p.a. at each barrier level in the current filter.</p>
+      <ul class="toplist" id="frontier"></ul>
+    </div>
+  </section>
+
+  <section id="cmpSection" class="cmpwrap" hidden aria-label="Comparison">
+    <div class="tablehead"><h2>Side-by-side comparison</h2><button class="btn ghost" id="cmpClose">Close comparison</button></div>
+    <div class="tscroll"><table id="cmpTable"></table></div>
+  </section>
+
+  <section class="tablecard" aria-label="All notes">
+    <div class="tablehead"><h2>Offerings</h2><span class="cnt" id="cnt"></span></div>
+    <div class="legend">
+      <div><b>Call threshold</b>: how far the underlying must be above its starting level on a call date for the note to be called early (≥ 0% = at or above the start).</div>
+      <div><b>Coupon threshold</b>: the lowest the underlying can fall, versus its start, and still pay that period's contingent coupon.</div>
+      <div><b>Barrier</b>: the level checked at maturity. At or above it, principal is returned; below it, the loss follows the underlying.</div>
+    </div>
+    <div class="tscroll"><table id="tbl"><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <p class="foot">Data is a snapshot read from notes.cibc.com (principal-at-risk and principal-protected current offerings), National Bank's Class F current-offer page and its product pages, bmonotes.com (principal-at-risk and principal-protected notes currently selling), and Scotiabank GBM's current issues (principal-at-risk, principal-protected and market-linked GICs). Thresholds are shown relative to each underlying's starting level; where an issuer states a level as a % of initial (e.g. 105%), it is shown here as the move from the start (+5%). National Bank omits the call threshold on its offer page when it is 0%; its product pages confirm this. "Return p.a." means the annual contingent coupon for income notes, the per-year call premium for autocallables, and the annualized booster or fixed coupon where a bank publishes one; growth notes without a fixed figure show their participation in the details. Fee is the selling concession per $100 where published (Class F carries none). Always confirm terms against the issuer's pricing supplement before recommending a note.</p>
+</div>
+
+<div class="tray" id="tray" hidden>
+  <strong style="font-size:13px">Compare</strong>
+  <div class="chips" id="trayChips"></div>
+  <button class="btn ghost" id="trayClear">Clear</button>
+  <button class="btn" id="trayGo">Compare</button>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const PAYLOAD = __DATA__;
+const DATA = PAYLOAD.notes || PAYLOAD;
+const META = PAYLOAD.meta || {};
+const GH = __GH__;
+const TODAY = new Date();
+const BK = {"CIBC":"CIBC","National Bank":"NBC","BMO":"BMO","Scotiabank":"Scotia"};
+const SHAPE = {CIBC:"circle",NBC:"square",BMO:"tri",Scotia:"diamond"};
+const SCOL = {CIBC:1,NBC:2,BMO:3,Scotia:4};
+const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+DATA.forEach((n,i)=>{n.id=n.code||('x'+i); n.bk=BK[n.bank];
+  n.closeD = n.close? new Date(n.close+'T23:59:00') : null;
+  const t0=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()); const c0=n.close?new Date(n.close+'T00:00:00'):null;
+  n.days = c0? Math.round((c0-t0)/864e5) : null;
+  n.closed = n.days!==null && n.days<0 || /closed|sold out/i.test(n.status||'') || !!n.closedFlag;
+  n.depth = n.barrier==null? null : -n.barrier; });
+
+const stars = new Set(store.get('stars',[]));
+let cmp = [];
+const defaults = {bank:'All',prot:'All',type:'All',cls:'All',cur:'All',sector:'All',region:'All',term:'99',minrate:'',minbar:'0',callthr:'any',cpnthr:'0',q:'',show:'Open'};
+let F = Object.assign({}, defaults, store.get('filters',{}));
+let sort = store.get('sort',{k:'close',d:1});
+let openId = null;
+
+function segs(id,key,opts){const el=document.getElementById(id);el.innerHTML='';
+  opts.forEach(o=>{const b=document.createElement('button');b.type='button';b.textContent=o[1];b.setAttribute('aria-pressed',F[key]===o[0]);
+    b.onclick=()=>{F[key]=o[0];segs(id,key,opts);render()};el.appendChild(b)})}
+function sel(id,key,vals){const el=document.getElementById(id);el.innerHTML=['All',...vals].map(v=>`<option value="${v}">${v==='All'?'Any':v}</option>`).join('');el.value=F[key];el.onchange=()=>{F[key]=el.value;render()}}
+function initFilters(){
+  segs('f-bank','bank',[['All','All'],['CIBC','CIBC'],['National Bank','NBC'],['BMO','BMO'],['Scotiabank','Scotia']]);
+  segs('f-prot','prot',[['All','All'],['At risk','At risk'],['Protected','Protected']]);
+  segs('f-type','type',[['All','All'],['Contingent income','Income'],['Autocallable','Autocall'],['Growth','Growth'],['Fixed income','Fixed']]);
+  segs('f-cls','cls',[['All','All'],['F','Class F'],['A','Commission']]);
+  segs('f-cur','cur',[['All','All'],['CAD','CAD'],['USD','USD']]);
+  segs('f-show','show',[['Open','Still open'],['Starred','Starred'],['All','Incl. closed']]);
+  const cnt=k=>{const m={};DATA.forEach(n=>m[n[k]]=(m[n[k]]||0)+1);return Object.keys(m).sort((a,b)=>m[b]-m[a])};
+  sel('f-sector','sector',cnt('sector')); sel('f-region','region',cnt('region'));
+  ['term','minbar','callthr','cpnthr'].forEach(k=>{const el=document.getElementById('f-'+k);el.value=F[k];el.onchange=()=>{F[k]=el.value;render()}});
+  const mr=document.getElementById('f-minrate');mr.value=F.minrate;mr.oninput=()=>{F.minrate=mr.value;render()};
+  const q=document.getElementById('f-q');q.value=F.q;q.oninput=()=>{F.q=q.value;render()};
+  document.getElementById('reset').onclick=()=>{F=Object.assign({},defaults);initFilters();render()};
+}
+function pass(n){
+  if(F.bank!=='All'&&n.bank!==F.bank)return false;
+  if(F.prot!=='All'&&n.prot!==F.prot)return false;
+  if(F.type!=='All'&&n.type!==F.type)return false;
+  if(F.cls==='F'&&!n.f)return false; if(F.cls==='A'&&n.f)return false;
+  if(F.cur!=='All'&&n.cur!==F.cur)return false;
+  if(F.sector!=='All'&&n.sector!==F.sector)return false;
+  if(F.region!=='All'&&n.region!==F.region)return false;
+  if(n.term>+F.term)return false;
+  if(F.minrate!==''&&!(n.rate>=+F.minrate))return false;
+  if(+F.minbar<0){ if(n.prot==='At risk' && !(n.barrier!=null && n.barrier<=+F.minbar)) return false; }
+  if(F.callthr!=='any'){ if(n.callThr==null) return false; if(F.callthr==='0'? n.callThr>0 : n.callThr<+F.callthr) return false; }
+  if(+F.cpnthr<0){ if(!(n.cpnBarrier!=null && n.cpnBarrier<=+F.cpnthr)) return false; }
+  if(F.show==='Open'&&n.closed)return false;
+  if(F.show==='Starred'&&!stars.has(n.id))return false;
+  if(F.q){const s=(n.name+' '+n.und+' '+n.code+' '+n.sector).toLowerCase(); if(!F.q.toLowerCase().split(/\s+/).every(w=>s.includes(w)))return false}
+  return true;
+}
+const fmtP=(v,d=2)=>{if(v==null)return '—';let s=(+v).toFixed(d);if(s.includes('.'))s=s.replace(/0+$/,'').replace(/\.$/,'');return s+'%'};
+const fmtD=s=>{if(!s)return'—';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sgn=v=>(v>0?'+':'')+fmtP(v,2);
+const callTxt=n=>n.callThr!=null?('≥ '+sgn(n.callThr)):'';
+function callCell(n){
+  if(n.callThr!=null) return `<span class="thr">${callTxt(n)}</span><div class="rlab">${esc(n.callFreq||'')}</div>`+(n.callNote?`<div class="rlab">${esc(n.callNote)}</div>`:'');
+  if(n.callNote) return `<span class="thr na">${esc(n.callNote)}</span>`;
+  return `<span class="thr na">${n.type==='Fixed income'&&/xtendible/.test(n.callFreq||'')?'Issuer extension':'Not callable'}</span>`;
+}
+function cpnCell(n){
+  if(n.cpnBarrier!=null) return `<span class="thr">≥ ${fmtP(n.cpnBarrier,0)}</span>`;
+  return `<span class="thr na">${n.type==='Contingent income'?'Not published':(n.type==='Fixed income'?'Fixed coupon':'No coupon')}</span>`;
+}
+
+const COLS=[
+  {k:'star',l:'',s:false},
+  {k:'bank',l:'Bank',s:true,v:n=>n.bank},
+  {k:'name',l:'Note',s:true,v:n=>n.name},
+  {k:'type',l:'Structure',s:true,v:n=>n.type},
+  {k:'term',l:'Term',s:true,v:n=>n.term,r:1},
+  {k:'rate',l:'Return p.a.',s:true,v:n=>n.rate??-1,r:1},
+  {k:'depth',l:'<abbr title="Maturity barrier: principal is returned if the underlying is at or above this level at maturity">Barrier</abbr>',s:true,v:n=>n.prot==='Protected'?101:(n.depth??-1)},
+  {k:'cpn',l:'<abbr title="Lowest level vs. start at which the contingent coupon is still paid">Coupon threshold</abbr>',s:true,v:n=>n.cpnBarrier==null?1:n.cpnBarrier,r:1},
+  {k:'call',l:'<abbr title="Level vs. start needed on a call date for early redemption">Call threshold</abbr>',s:true,v:n=>n.callThr==null?99:n.callThr},
+  {k:'fee',l:'Fee',s:true,v:n=>n.fee??99,r:1},
+  {k:'close',l:'Order by',s:true,v:n=>n.close||'9'},
+  {k:'cmp',l:'',s:false}];
+function head(){document.getElementById('thead').innerHTML=COLS.map(c=>`<th class="${c.s?'s':''} ${c.r?'r':''}" data-k="${c.k}" ${c.s?'tabindex="0" aria-sort="'+(sort.k===c.k?(sort.d>0?'ascending':'descending'):'none')+'"':''}>${c.l}${sort.k===c.k?`<span class="ar">${sort.d>0?'▲':'▼'}</span>`:''}</th>`).join('');
+  document.querySelectorAll('#thead th.s').forEach(th=>{const go=()=>{const k=th.dataset.k;sort={k,d:sort.k===k?-sort.d:(k==='rate'||k==='depth'?-1:1)};render()};th.onclick=go;th.onkeydown=e=>{if(e.key==='Enter')go()}})}
+
+function protCell(n){
+  if(n.prot==='Protected')return `<div class="gauge"><span class="gbar p"><i></i></span><span class="pill prot">100% protected</span></div>`;
+  if(n.barrier==null)return `<span class="rlab">${esc(n.callNote||'See terms')}</span>`;
+  const w=Math.min(100,n.depth/50*100);
+  return `<div class="gauge"><span class="gbar" title="Barrier ${n.barrier}%"><i style="width:${w}%"></i></span><span class="num">${fmtP(n.barrier,0)}</span></div>`+(n.feats.some(f=>/Buffer/.test(f))?'<div class="rlab">buffer</div>':'');
+}
+function closeCell(n){
+  if(!n.close)return '—';
+  let t; if(n.closed)t='<span class="cd">closed</span>'; else if(n.days===0)t='<span class="cd soon">today</span>'; else t=`<span class="cd ${n.days<=3?'soon':''}">in ${n.days} day${n.days>1?'s':''}</span>`;
+  const st = n.status&&!/closed/i.test(n.status)?`<div><span class="pill new">${esc(n.status)}</span></div>`:'';
+  return `<div class="close num">${fmtD(n.close).replace(', 2026','')}</div>${t}${st}`;
+}
+function row(n){
+  const o=openId===n.id;
+  const r=`<tr class="row ${o?'open':''}" data-id="${esc(n.id)}" tabindex="0" aria-expanded="${o}">
+  <td><button class="star" aria-label="Star note" aria-pressed="${stars.has(n.id)}" data-star="${esc(n.id)}">${stars.has(n.id)?'★':'☆'}</button></td>
+  <td class="bankcell"><i class="dot b-${n.bk}"></i>${n.bk}</td>
+  <td><div class="nm1">${esc(n.name.replace(/^(CIBC|NBC|BMO) /,''))}</div><div class="nm2">${esc(n.und)}</div>
+     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"><span class="pill num">${esc(n.code)}</span><span class="pill">${n.cur}</span>${n.f?'<span class="pill f">Class F</span>':''}</div></td>
+  <td><div>${n.type}</div><div class="rlab">${esc(n.freq?n.freq+' coupon':(n.callFreq||''))}</div></td>
+  <td class="r num">${n.term%1?n.term:n.term.toFixed(0)}y</td>
+  <td class="r"><div class="rate num">${n.rate==null?(n.type==='Growth'?'<span class="rlab">see details</span>':'TBD'):fmtP(n.rate)}</div><div class="rlab">${esc(n.rateLabel||'')}</div></td>
+  <td>${protCell(n)}</td>
+  <td class="r">${cpnCell(n)}</td>
+  <td>${callCell(n)}</td>
+  <td class="r num">${n.fee==null?'<span class="rlab">n/p</span>':fmtP(n.fee)}</td>
+  <td>${closeCell(n)}</td>
+  <td><button class="cmp" aria-pressed="${cmp.includes(n.id)}" data-cmp="${esc(n.id)}">${cmp.includes(n.id)?'Added':'Compare'}</button></td></tr>`;
+  if(!o)return r;
+  const kv=(k,v)=>`<div class="kv"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  return r+`<tr class="det"><td colspan="${COLS.length}"><div class="detgrid">
+   ${kv('Full name',esc(n.name))}${kv('Underlying',esc(n.und))}
+   ${kv('Region / theme',esc(n.region+' · '+n.sector))}
+   ${kv('Barrier (maturity)',n.prot==='Protected'?'100% principal protected at maturity':(n.barrier!=null?`Principal returned if underlying ≥ ${fmtP(n.barrier,0)} vs. start`:'See terms'))}
+   ${kv('Call threshold',n.callThr!=null?esc(callTxt(n)+' vs. start'+(n.callFreq?' · '+n.callFreq:'')+(n.callNote?' · '+n.callNote:'')):esc(n.callNote||'Not callable'))}
+   ${kv('Coupon threshold',n.cpnBarrier!=null?`Coupon paid if underlying ≥ ${fmtP(n.cpnBarrier,0)} vs. start`:(n.type==='Contingent income'?'Not published':'n/a'))}
+   ${kv('Order deadline',fmtD(n.close)+(n.opening?' (opens '+fmtD(n.opening)+')':''))}
+   ${kv(n.mat?'Maturity':'Issue date',fmtD(n.mat||n.issue))}
+   ${kv('Fee / est. trailing commission',(n.fee==null?'Not published':fmtP(n.fee))+(n.etc!=null?' · ETC '+fmtP(n.etc):''))}
+   ${n.feats.length?`<ul class="feats">${n.feats.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
+   <div class="kv"><a href="${esc(n.url)}" target="_blank" rel="noopener">Open on ${n.bank}'s site ↗</a></div>
+  </div></td></tr>`;
+}
+
+function stats(L){
+  const open=L.filter(n=>!n.closed);
+  const rated=L.filter(n=>n.rate!=null&&n.prot==='At risk');
+  const best=[...rated].sort((a,b)=>b.rate-a.rate)[0];
+  const soon=open.filter(n=>n.days!=null&&n.days<=3).length;
+  const by=b=>L.filter(n=>n.bank===b).length;
+  const med=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y);const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+  const inc=L.filter(n=>n.type==='Contingent income'&&n.rate!=null).map(n=>n.rate);
+  document.getElementById('stats').innerHTML=[
+    ['Notes in view',`<span class="num">${L.length}</span>`,`CIBC ${by('CIBC')} · NBC ${by('National Bank')} · BMO ${by('BMO')} · Scotia ${by('Scotiabank')}`],
+    ['Closing within 3 days',`<span class="num">${soon}</span>`,soon?'Sort by “Order by” to see them first':'Nothing urgent'],
+    ['Median income coupon',`<span class="num">${fmtP(med(inc))}</span>`,`across ${inc.length} contingent-income notes`],
+    ['Highest return p.a.',`<span class="num">${best?fmtP(best.rate):'—'}</span>`,best?esc(best.bk+' · '+best.und):'—'],
+    ['Principal protected',`<span class="num">${L.filter(n=>n.prot==='Protected').length}</span>`,'deposit notes and GICs']
+  ].map(s=>`<div class="stat"><div class="k">${s[0]}</div><div class="v">${s[1]}</div><div class="d" title="${s[2].replace(/<[^>]+>/g,'')}">${s[2]}</div></div>`).join('');
+}
+
+/* scatter */
+function map(L){
+  const svg=document.getElementById('map');const W=720,H=300,m={l:46,r:14,t:12,b:38};
+  const P=L.filter(n=>n.prot==='At risk'&&n.rate!=null&&n.depth!=null);
+  const ymax=Math.max(10,Math.ceil(Math.max(0,...P.map(n=>n.rate))/5)*5);
+  const x=v=>m.l+(v-5)/(50-5)*(W-m.l-m.r), y=v=>H-m.b-v/ymax*(H-m.t-m.b);
+  let g='';
+  for(let v=0;v<=ymax;v+=5)g+=`<line class="gl" x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l-8}" y="${y(v)+4}" text-anchor="end">${v}%</text>`;
+  for(let v=10;v<=50;v+=10)g+=`<line class="gl" x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H-m.b}"/><text x="${x(v)}" y="${H-m.b+16}" text-anchor="middle">-${v}%</text>`;
+  g+=`<line class="ax" x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/>`;
+  g+=`<text x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">Barrier (deeper = more cushion) →</text>`;
+  g+=`<text transform="translate(12 ${(H-m.b+m.t)/2}) rotate(-90)" text-anchor="middle">Return p.a.</text>`;
+  // jitter duplicates
+  const seen={};
+  P.forEach(n=>{const key=n.depth+'|'+n.rate.toFixed(1);const k=seen[key]=(seen[key]||0)+1;
+    const cx=x(n.depth)+(k-1)*7, cy=y(n.rate); const c=`var(--s${SCOL[n.bk]})`;
+    const a=`class="pt" data-id="${esc(n.id)}" fill="${c}"`;
+    g+= SHAPE[n.bk]==='circle'?`<circle ${a} cx="${cx}" cy="${cy}" r="5.5"/>`:
+        SHAPE[n.bk]==='square'?`<rect ${a} x="${cx-5}" y="${cy-5}" width="10" height="10" rx="2"/>`:
+        SHAPE[n.bk]==='diamond'?`<path ${a} d="M${cx} ${cy-7}L${cx+7} ${cy}L${cx} ${cy+7}L${cx-7} ${cy}Z"/>`:
+        `<path ${a} d="M${cx} ${cy-6.5}L${cx+6.5} ${cy+5}L${cx-6.5} ${cy+5}Z"/>`});
+  if(!P.length)g+=`<text x="${W/2}" y="${H/2}" text-anchor="middle">No principal-at-risk notes with a published return in this filter</text>`;
+  svg.innerHTML=g;
+  const tip=document.getElementById('tip');
+  svg.querySelectorAll('.pt').forEach(el=>{const n=DATA.find(d=>d.id===el.dataset.id);
+    el.onmousemove=e=>{tip.hidden=false;tip.innerHTML=`<b>${esc(n.bk)} · ${esc(n.code)}</b><br>${esc(n.und)}<br>${fmtP(n.rate)} ${esc(n.rateLabel)}<br>Barrier ${fmtP(n.barrier,0)}${n.cpnBarrier!=null?' · coupon threshold '+fmtP(n.cpnBarrier,0):''}${n.callThr!=null?' · call '+callTxt(n):''}<br>${n.type} · ${n.term}y · ${n.cur}${n.f?' · Class F':''}`;
+      const tx=Math.min(e.clientX+14,innerWidth-310);tip.style.left=tx+'px';tip.style.top=(e.clientY+14)+'px';
+      svg.querySelectorAll('.pt').forEach(p=>p.classList.toggle('dim',p!==el))};
+    el.onmouseleave=()=>{tip.hidden=true;svg.querySelectorAll('.pt').forEach(p=>p.classList.remove('dim'))};
+    el.onclick=()=>focusRow(n.id)});
+  // frontier
+  const best={};P.forEach(n=>{const d=n.depth;if(!best[d]||n.rate>best[d].rate)best[d]=n});
+  const fr=Object.keys(best).map(Number).sort((a,b)=>a-b).map(d=>best[d]);
+  document.getElementById('frontier').innerHTML=fr.length?fr.map(n=>`<li data-id="${esc(n.id)}" tabindex="0"><span class="num" style="font-size:12px;color:var(--ink-3);width:40px">${fmtP(n.barrier,0)}</span><span class="nm"><i class="dot b-${n.bk}"></i>${esc(n.bk)} · ${esc(n.und)}<br><span class="rlab">${n.type} · ${n.term}y · ${n.cur}${n.f?' · F':''}</span></span><span class="rt num">${fmtP(n.rate)}</span></li>`).join(''):'<li class="rlab">Nothing to rank in this filter</li>';
+  document.querySelectorAll('#frontier li[data-id]').forEach(li=>{li.onclick=()=>focusRow(li.dataset.id);li.onkeydown=e=>{if(e.key==='Enter')focusRow(li.dataset.id)}});
+}
+function focusRow(id){openId=id;render();const r=document.querySelector(`tr.row[data-id="${CSS.escape(id)}"]`);if(r){r.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});r.focus({preventScroll:true})}}
+
+function tray(){
+  const t=document.getElementById('tray');t.hidden=!cmp.length;
+  document.getElementById('trayChips').innerHTML=cmp.map(id=>{const n=DATA.find(d=>d.id===id);return `<span class="chip" title="${esc(n.name)}"><i class="dot b-${n.bk}"></i>${esc(n.bk+' · '+n.und)}</span>`}).join('')+(cmp.length<4?`<span class="rlab" style="align-self:center">${4-cmp.length} more slot${cmp.length<3?'s':''}</span>`:'');
+  document.body.style.paddingBottom=cmp.length?'90px':'';
+}
+function compare(){
+  const N=cmp.map(id=>DATA.find(d=>d.id===id));if(!N.length)return;
+  const rows=[['Bank',n=>`<i class="dot b-${n.bk}"></i>${n.bank}`],['Note',n=>esc(n.name)],['FundSERV',n=>`<span class="num">${esc(n.code)}</span>`],['Underlying',n=>esc(n.und)],['Structure',n=>n.type],
+    ['Currency / class',n=>n.cur+(n.f?' · Class F':'')],['Term',n=>n.term+' years'],['Return p.a.',n=>`<span class="num">${n.rate==null?'—':fmtP(n.rate)}</span> <span class="rlab">${esc(n.rateLabel)}</span>`],
+    ['Payment frequency',n=>esc(n.freq||'—')],['Barrier (maturity)',n=>n.prot==='Protected'?'100% principal protected':(n.barrier!=null?`<span class="num">${fmtP(n.barrier,0)}</span> barrier`:'See terms')],
+    ['Coupon threshold',n=>cpnCell(n)],['Call threshold',n=>callCell(n)],
+    ['Fee',n=>n.fee==null?'Not published':fmtP(n.fee)],['ETC',n=>n.etc==null?'—':fmtP(n.etc)],['Order by',n=>fmtD(n.close)],['Other terms',n=>n.feats.map(esc).join('<br>')||'—'],['Link',n=>`<a href="${esc(n.url)}" target="_blank" rel="noopener">Issuer page ↗</a>`]];
+  document.getElementById('cmpTable').innerHTML='<tbody>'+rows.map(r=>`<tr><td>${r[0]}</td>${N.map(n=>`<td>${r[1](n)}</td>`).join('')}</tr>`).join('')+'</tbody>';
+  const s=document.getElementById('cmpSection');s.hidden=false;s.scrollIntoView({behavior:'auto',block:'start'});
+}
+document.getElementById('cmpClose').onclick=()=>{document.getElementById('cmpSection').hidden=true};
+document.getElementById('trayClear').onclick=()=>{cmp=[];document.getElementById('cmpSection').hidden=true;render()};
+document.getElementById('trayGo').onclick=compare;
+
+document.getElementById('tbody').addEventListener('click',e=>{
+  const s=e.target.closest('[data-star]');if(s){const id=s.dataset.star;stars.has(id)?stars.delete(id):stars.add(id);store.set('stars',[...stars]);render();return}
+  const c=e.target.closest('[data-cmp]');if(c){const id=c.dataset.cmp;if(cmp.includes(id))cmp=cmp.filter(x=>x!==id);else if(cmp.length<4)cmp.push(id);render();if(!document.getElementById('cmpSection').hidden)compare();return}
+  if(e.target.closest('a'))return;
+  const r=e.target.closest('tr.row');if(r){openId=openId===r.dataset.id?null:r.dataset.id;render()}});
+document.getElementById('tbody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('tr.row')){openId=openId===e.target.dataset.id?null:e.target.dataset.id;render();const r=document.querySelector(`tr.row[data-id="${CSS.escape(e.target.dataset.id)}"]`);r&&r.focus()}});
+
+function render(){
+  store.set('filters',F);store.set('sort',sort);
+  const L=DATA.filter(pass);
+  const c=COLS.find(c=>c.k===sort.k)||COLS[10];
+  L.sort((a,b)=>{const A=c.v(a),B=c.v(b);return (A<B?-1:A>B?1:0)*sort.d || (b.rate??-1)-(a.rate??-1)});
+  head();stats(L);map(L);tray();
+  document.getElementById('cnt').textContent=`${L.length} of ${DATA.length} notes · click a row for full terms`;
+  document.getElementById('tbody').innerHTML=L.length?L.map(row).join(''):`<tr><td colspan="${COLS.length}" class="empty">No notes match these filters. Loosen one or press Reset filters.</td></tr>`;
+}
+initFilters();render();
+
+/* ---------- snapshot time + per-bank status ---------- */
+(function(){
+  const el=document.getElementById('asof');
+  if(META.asof){
+    const d=new Date(META.asof);
+    el.textContent='Data as of '+d.toLocaleString('en-CA',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  const bad=Object.entries(META.banks||{}).filter(([,v])=>!v.ok).map(([k])=>k);
+  if(bad.length){const s=document.createElement('div');s.className='stale';
+    s.textContent=`Last refresh could not reach ${bad.join(', ')}; showing their previous data.`;
+    el.parentElement.after(s);}
+})();
+
+/* ---------- Refresh button: runs the GitHub workflow, then offers a reload ---------- */
+(function(){
+  if(!GH || !GH.token || !/^https?:/.test(location.protocol)) return;
+  const btn=document.getElementById('refreshBtn'), st=document.getElementById('rstatus');
+  btn.hidden=false;
+  const api=(path,opt={})=>fetch('https://api.github.com/repos/'+GH.repo+path,Object.assign({},opt,{headers:Object.assign({
+      'Authorization':'Bearer '+GH.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},opt.headers||{})}));
+  const say=(html,err)=>{st.hidden=false;st.className='rstatus'+(err?' err':'');st.innerHTML=html};
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const pageUrl=location.href.split('#')[0].split('?')[0];
+  async function liveBuild(){
+    try{const h=await (await fetch(pageUrl+'?b='+Date.now(),{cache:'no-store'})).text();
+      return (h.match(/name="notes-build" content="(\d+)"/)||[])[1]||'';}catch(e){return ''}
+  }
+  async function latestRun(){
+    const r=await api('/actions/workflows/'+GH.workflow+'/runs?per_page=1');
+    if(!r.ok) throw new Error('status '+r.status);
+    return ((await r.json()).workflow_runs||[])[0];
+  }
+  function offerReload(){
+    say('New data is ready. <button class="btn" id="reloadNow" type="button">Reload page</button>');
+    document.getElementById('reloadNow').onclick=()=>location.replace(pageUrl+'?b='+Date.now());
+    btn.disabled=false; btn.textContent='Refresh data';
+  }
+  async function watch(sinceRunId){
+    const t0=Date.now();
+    say('<span class="spin" aria-hidden="true"></span> Fetching the latest notes from all four banks. This usually takes 2 to 4 minutes; you can keep browsing.');
+    let run=null;
+    while(Date.now()-t0<15*60e3){
+      await sleep(8000);
+      try{run=await latestRun()}catch(e){continue}
+      if(run && run.id!==sinceRunId && run.status==='completed') break;
+      if(run && run.id===sinceRunId && run.status==='completed' && Date.now()-t0>60e3) break;
+    }
+    if(!run || run.status!=='completed'){say('The refresh is taking longer than usual. Check back in a few minutes.',true);btn.disabled=false;btn.textContent='Refresh data';return}
+    if(run.conclusion!=='success'){say('The refresh did not finish, so the data shown is unchanged. Try again in a few minutes.',true);btn.disabled=false;btn.textContent='Refresh data';return}
+    say('<span class="spin" aria-hidden="true"></span> Refresh finished. Publishing the new version (about a minute)…');
+    const t1=Date.now();
+    while(Date.now()-t1<6*60e3){
+      const b=await liveBuild();
+      if(b && b!==GH.build){offerReload();return}
+      await sleep(10000);
+    }
+    say('The new data was saved but the site has not updated yet. Reload the page in a few minutes.',true);
+    btn.disabled=false; btn.textContent='Refresh data';
+  }
+  btn.addEventListener('click',async()=>{
+    btn.disabled=true; btn.textContent='Refreshing…';
+    let before=null;
+    try{before=await latestRun()}catch(e){}
+    if(before && before.status!=='completed'){watch(-1);return}
+    const r=await api('/actions/workflows/'+GH.workflow+'/dispatches',{method:'POST',body:JSON.stringify({ref:'main'}),headers:{'Content-Type':'application/json'}});
+    if(r.status!==204){
+      say(r.status===401||r.status===403?'The refresh key has expired or lost access. Ask Jordan to renew it.':'Could not start the refresh (error '+r.status+'). Try again shortly.',true);
+      btn.disabled=false; btn.textContent='Refresh data'; return;
+    }
+    watch(before?before.id:null);
+  });
+  // a newer version may already be live (e.g. someone else refreshed)
+  liveBuild().then(b=>{ if(b && b!==GH.build) offerReload(); });
+})();
+</script>

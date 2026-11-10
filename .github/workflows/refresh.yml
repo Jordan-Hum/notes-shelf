@@ -1,0 +1,49 @@
+name: Refresh notes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-notes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install --quiet cryptography==43.0.3
+
+      # The repository is public, so the data only ever exists in the runner's temp
+      # folder and inside the encrypted page. Logs print counts only.
+      - name: Read the previous data (fallback if a bank fails)
+        env:
+          NOTES_PASSWORD: ${{ secrets.NOTES_PASSWORD }}
+        run: python scripts/build_site.py extract index.html "$RUNNER_TEMP/prev.json" || echo '{"notes":[]}' > "$RUNNER_TEMP/prev.json"
+
+      - name: Fetch all four banks
+        run: python scripts/refresh.py "$RUNNER_TEMP/data.json" "$RUNNER_TEMP/prev.json"
+
+      - name: Build and encrypt the page
+        env:
+          NOTES_PASSWORD: ${{ secrets.NOTES_PASSWORD }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+        run: python scripts/build_site.py build "$RUNNER_TEMP/data.json" index.html
+
+      - name: Publish
+        run: |
+          git config user.name "notes-refresh-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Refresh notes data" || { echo "No changes"; exit 0; }
+          git push

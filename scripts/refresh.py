@@ -24,7 +24,7 @@ def get(url, data=None, headers=None, tries=3, as_json=False):
     for i in range(tries):
         try:
             req = urllib.request.Request(url, data=data, headers=h, method='POST' if data is not None else 'GET')
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=45) as r:
                 body = r.read().decode('utf-8', 'replace')
             return json.loads(body) if as_json else body
         except Exception as e:  # noqa: BLE001
@@ -238,11 +238,7 @@ def nbc():
         else: status = ''
         if sold_out: status = 'Sold out'
         mat = ''
-        try:
-            mat = (get(f'https://app.nbcstructuredsolutions.ca/api/v1/public/products/{pid}', as_json=True, tries=1) or {}).get('maturityDate') or ''
-        except Exception:  # noqa: BLE001
-            pass
-        if not mat and issue and term:
+        if issue and term:
             d0 = date.fromisoformat(issue)
             mat = d0.replace(year=d0.year + int(term)).isoformat() if term == int(term) else ''
         out.append(note(
@@ -251,7 +247,17 @@ def nbc():
             rate=rate, rateLabel=rate_label, freq=freq, barrier=None if protected else (float(bar.group(1)) if bar else None),
             cpnBarrier=cpnb, callThr=cthr, callNote=cnote, callFreq=cfreq, fee=pnum(_js_val(b, 'commission')),
             status=status, feats=feats, opening=start if start and date.fromisoformat(start) > TODAY else '',
-            issue=issue, closedFlag=sold_out, url=NBC_PAGE))
+            issue=issue, closedFlag=sold_out, url=NBC_PAGE, _pid=pid))
+
+    def mat_of(n):
+        try:
+            return (get(f'https://app.nbcstructuredsolutions.ca/api/v1/public/products/{n["_pid"]}',
+                        as_json=True, tries=1) or {}).get('maturityDate') or ''
+        except Exception:  # noqa: BLE001
+            return ''
+    for n, m in zip(out, pmap(mat_of, out)):
+        if m: n['mat'] = m
+        n.pop('_pid', None)
     return out
 
 
@@ -275,6 +281,8 @@ def bmo():
         cat = ((r.get('productCategory') or {}).get('en') or '')
         code = r.get('cmdb') or ''
         if not code.startswith('JHN') or not re.search('Principal', cat):
+            continue
+        if r.get('noteStateEnum') != 1:      # 1 = currently selling (the feed holds ~19k historical notes)
             continue
         cands.append((code, clean((r.get('name') or {}).get('en')), cat))
     cands = list({c[0]: c for c in cands}.values())

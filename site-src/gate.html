@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="notes-build" content="__BUILD__">
+<title>Structured Notes Shelf</title>
+<style>
+:root{--bg:#f5f7f9;--panel:#fff;--ink:#17202b;--ink2:#4a5664;--line:#dde3ea;--accent:#1d3a5f;--accent-ink:#fff;--err:#c2410c}
+@media (prefers-color-scheme:dark){:root{--bg:#0f141a;--panel:#161d25;--ink:#e7edf3;--ink2:#a9b5c2;--line:#2a3542;--accent:#9cc3f0;--accent-ink:#0f141a;--err:#f08a5d;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;place-items:center;
+ padding:max(16px,env(safe-area-inset-left,0px))}
+form{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;width:min(380px,100%);display:flex;flex-direction:column;gap:12px}
+h1{font-size:20px;margin:0}
+p{margin:0;color:var(--ink2);font-size:13px}
+input[type=password]{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+label.r{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2)}
+button{font:inherit;font-weight:600;padding:10px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+#err{color:var(--err);font-size:13px;min-height:1em}
+:focus-visible{outline:2px solid #2a78d6;outline-offset:1px}
+</style></head>
+<body>
+<form id="f" autocomplete="on">
+  <h1>Structured Notes Shelf</h1>
+  <p>Enter the password to open the notes dashboard.</p>
+  <input type="text" name="username" value="notes-shelf" autocomplete="username" hidden>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="Password" required autofocus aria-label="Password">
+  <label class="r"><input type="checkbox" id="rem"> Remember on this device</label>
+  <button id="go" type="submit">Open</button>
+  <div id="err" role="alert"></div>
+</form>
+<script>
+const P = __PAYLOAD__;
+const KEY = 'notes-shelf-pw';
+const d64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function open(pw){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:d64(P.s), iterations:P.n, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:d64(P.i)}, key, d64(P.c));
+  return new TextDecoder().decode(plain);
+}
+async function unlock(pw, remember){
+  const btn = document.getElementById('go'), err = document.getElementById('err');
+  btn.disabled = true; btn.textContent = 'Unlocking…'; err.textContent = '';
+  try {
+    const html = await open(pw);
+    try { remember ? localStorage.setItem(KEY, pw) : localStorage.removeItem(KEY); } catch(e) {}
+    document.open(); document.write(html); document.close();
+  } catch(e) {
+    try { localStorage.removeItem(KEY); } catch(_) {}
+    err.textContent = 'That password did not work. Check it and try again.';
+    btn.disabled = false; btn.textContent = 'Open';
+  }
+}
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); unlock(document.getElementById('pw').value.trim(), document.getElementById('rem').checked); });
+let saved = null; try { saved = localStorage.getItem(KEY); } catch(e) {}
+if (saved) { document.getElementById('rem').checked = true; unlock(saved, true); }
+</script>
+</body></html>

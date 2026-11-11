@@ -2,6 +2,9 @@ name: Refresh notes
 
 on:
   workflow_dispatch:
+  push:                      # rebuild when the page or scraper code changes
+    branches: [main]
+    paths: ['site-src/**', 'scripts/**']
 
 permissions:
   contents: write

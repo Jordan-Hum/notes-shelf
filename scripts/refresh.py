@@ -163,7 +163,11 @@ NBC_PAGE = 'https://cloud.messagebnc.nbc.ca/en-notes-current-offer?category=F'
 
 def _js_str(block, key):
     m = re.search(key + r':\s*\{\s*(?:id:\s*"[^"]*",\s*)?en:\s*"((?:[^"\\]|\\.)*)"', block)
-    return clean(m.group(1).encode().decode('unicode_escape', 'ignore')) if m else ''
+    if not m:
+        return ''
+    s = re.sub(r'\\u([0-9a-fA-F]{4})', lambda x: chr(int(x.group(1), 16)), m.group(1))
+    s = s.replace('\\n', ' ').replace('\\"', '"').replace("\\'", "'").replace('\\\\', '\\')
+    return clean(s)
 
 
 def _js_date(block, key):

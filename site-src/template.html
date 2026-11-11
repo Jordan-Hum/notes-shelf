@@ -286,6 +286,13 @@ function pass(n){
 const fmtP=(v,d=2)=>{if(v==null)return '—';let s=(+v).toFixed(d);if(s.includes('.'))s=s.replace(/0+$/,'').replace(/\.$/,'');return s+'%'};
 const fmtD=s=>{if(!s)return'—';const d=new Date(s+'T12:00:00');return d.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function linksHtml(n){
+  const main=n.urlNote
+    ? `<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.urlNote)} ↗</a>`
+    : `<a href="${esc(n.url)}" target="_blank" rel="noopener">Open this note on ${esc(n.bank)}'s site ↗</a>`;
+  const docs=(n.docs||[]).map(d=>`<a href="${esc(d[1])}" target="_blank" rel="noopener">${esc(d[0])} (PDF) ↗</a>`);
+  return [main,...docs].join('<br>');
+}
 const sgn=v=>(v>0?'+':'')+fmtP(v,2);
 const callTxt=n=>n.callThr!=null?('≥ '+sgn(n.callThr)):'';
 function callCell(n){
@@ -354,7 +361,7 @@ function row(n){
    ${kv(n.mat?'Maturity':'Issue date',fmtD(n.mat||n.issue))}
    ${kv('Fee / est. trailing commission',(n.fee==null?'Not published':fmtP(n.fee))+(n.etc!=null?' · ETC '+fmtP(n.etc):''))}
    ${n.feats.length?`<ul class="feats">${n.feats.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
-   <div class="kv"><a href="${esc(n.url)}" target="_blank" rel="noopener">Open on ${n.bank}'s site ↗</a></div>
+   <div class="kv">${linksHtml(n)}</div>
   </div></td></tr>`;
 }
 
@@ -449,7 +456,7 @@ function compare(){
     ['Currency / class',n=>n.cur+(n.f?' · Class F':'')],['Term',n=>n.term+' years'],['Return p.a.',n=>`<span class="num">${n.rate==null?'—':fmtP(n.rate)}</span> <span class="rlab">${esc(n.rateLabel)}</span>`],
     ['Payment frequency',n=>esc(n.freq||'—')],['Barrier (maturity)',n=>n.prot==='Protected'?'100% principal protected':(n.barrier!=null?`<span class="num">${fmtP(n.barrier,0)}</span> barrier`:'See terms')],
     ['Coupon threshold',n=>cpnCell(n)],['Call threshold',n=>callCell(n)],
-    ['Fee',n=>n.fee==null?'Not published':fmtP(n.fee)],['ETC',n=>n.etc==null?'—':fmtP(n.etc)],['Order by',n=>fmtD(n.close)],['Other terms',n=>n.feats.map(esc).join('<br>')||'—'],['Link',n=>`<a href="${esc(n.url)}" target="_blank" rel="noopener">Issuer page ↗</a>`]];
+    ['Fee',n=>n.fee==null?'Not published':fmtP(n.fee)],['ETC',n=>n.etc==null?'—':fmtP(n.etc)],['Order by',n=>fmtD(n.close)],['Other terms',n=>n.feats.map(esc).join('<br>')||'—'],['Links',n=>linksHtml(n)]];
   document.getElementById('cmpTable').innerHTML='<tbody>'+rows.map(r=>`<tr><td>${r[0]}</td>${N.map(n=>`<td>${r[1](n)}</td>`).join('')}</tr>`).join('')+'</tbody>';
   const s=document.getElementById('cmpSection');s.hidden=false;s.scrollIntoView({behavior:'auto',block:'start'});
 }

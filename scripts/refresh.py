@@ -73,7 +73,7 @@ def clean(s):
 def note(**k):
     base = dict(callThr=None, callNote='', cpnBarrier=None, opening='', issue='', status='',
                 feats=[], fee=None, etc=None, freq='', callFreq='', rate=None, rateLabel='',
-                barrier=None, mat='', closedFlag=False)
+                barrier=None, mat='', closedFlag=False, docs=[], urlNote='')
     base.update(k)
     return base
 
@@ -258,18 +258,33 @@ def nbc():
             rate=rate, rateLabel=rate_label, freq=freq, barrier=None if protected else (float(bar.group(1)) if bar else None),
             cpnBarrier=cpnb, callThr=cthr, callNote=cnote, callFreq=cfreq, fee=pnum(_js_val(b, 'commission')),
             status=status, feats=feats, opening=start if start and date.fromisoformat(start) > TODAY else '',
-            issue=issue, closedFlag=sold_out, url=NBC_PAGE, _pid=pid))
+            issue=issue, closedFlag=sold_out, url=NBC_PAGE, _pid=pid, docs=_nbc_docs(b)))
 
-    def mat_of(n):
+    def info(n):
         try:
-            return (get(f'https://app.nbcstructuredsolutions.ca/api/v1/public/products/{n["_pid"]}',
-                        as_json=True, tries=1) or {}).get('maturityDate') or ''
+            return get(f'https://app.nbcstructuredsolutions.ca/api/v1/public/products/{n["_pid"]}',
+                       as_json=True, tries=2) or {}
         except Exception:  # noqa: BLE001
-            return ''
-    for n, m in zip(out, pmap(mat_of, out)):
-        if m: n['mat'] = m
+            return {}
+    for n, j in zip(out, pmap(info, out)):
+        if j.get('productId'):
+            # published product page for this note; upcoming notes don't have one yet
+            n['url'] = f'https://app.nbcstructuredsolutions.ca/products/{n["_pid"]}?lang=en'
+            n['mat'] = j.get('maturityDate') or n['mat']
+        else:
+            n['urlNote'] = "National Bank's current offer list (this note's own page isn't published yet)"
+            n['docs'] = []
         n.pop('_pid', None)
     return out
+
+
+def _nbc_docs(block):
+    docs = []
+    for key, label in (('link', 'Pricing supplement'), ('clientSummary', 'Client summary')):
+        m = re.search(key + r"\s*:\s*\{\s*en:\s*'(https://[^']+\.pdf)'", block)
+        if m:
+            docs.append([label, m.group(1)])
+    return docs
 
 
 # ------------------------------------------------------------------ BMO
